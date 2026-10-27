@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}{{ subject_view['name'] if subject_view else 'Student Dashboard' }} · CLASSORA{% endblock %}
+{% block content %}
+{% if current_user['role'] == 'student' %}
+<section class="welcome">
+  <div>
+    <div class="eyebrow">{% if subject_view %}SUBJECT LIBRARY{% else %}YOUR ACADEMIC SPACE{% endif %}</div>
+    <h1>{% if subject_view %}{{ subject_view['name'] }}{% else %}Good to see you, {{ current_user['name'].split()[0] }}.{% endif %}</h1>
+    <p class="muted">Semester {{ current_user['semester'] }} · Section {{ current_user['section'] }}{% if subject_view %} · {{ subject_view['code'] }}{% endif %}</p>
+  </div>
+  {% if subject_view %}<a class="btn secondary" href="{{ url_for('index') }}">← All subjects</a>{% endif %}
+</section>
+
+{% if not subject_view %}
+<div class="student-summary">
+  <div><span class="stat-label">Available subjects</span><b>{{ subject_count }}</b><span class="stat-foot">Your semester and section</span></div>
+  <div><span class="stat-label">Learning materials</span><b>{{ material_count }}</b><span class="stat-foot">Across all your subjects</span></div>
+  <div><span class="stat-label">Class notices</span><b>{{ notice_count }}</b><span class="stat-foot">Updates for your class</span></div>
+</div>
+<section class="panel student-subjects">
+  <div class="section-head"><div><div class="eyebrow">SUBJECT DIRECTORY</div><h2>My subjects</h2></div><span class="count">{{ subjects|length }} subjects</span></div>
+  {% if subjects %}
+  <div class="subject-grid">
+    {% for s in subjects %}
+    <a class="subject-card" href="{{ url_for('subject_detail', subject_id=s['id']) }}">
+      <div class="folder-illustration">📁</div>
+      <div class="subject-card-code">{{ s['code'] }}</div>
+      <h3>{{ s['name'] }}</h3>
+      <p>Semester {{ s['semester'] }} · Section {{ s['section'] }}</p>
+      <span class="open-folder">Open subject <span>↗</span></span>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty"><span>📚</span><h3>No subjects assigned yet</h3><p>Your subjects will appear here when they are added for your semester and section.</p></div>
+  {% endif %}
+</section>
+<section class="panel student-notices">
+  <div class="section-head"><div><div class="eyebrow">STAY UPDATED</div><h2>Notice board</h2></div><span class="notice-mark">!</span></div>
+  {% if notices %}<div class="notice-grid">{% for n in notices %}<article class="notice-item"><div class="notice-meta">{{ n['created_at'][:10] }} · Sem {{ n['semester'] }} / {{ n['section'] }}</div><h3>{{ n['title'] }}</h3><p>{{ n['body'] }}</p><small>Posted by {{ n['author'] }}</small></article>{% endfor %}</div>{% else %}<div class="empty compact"><p>No notices yet.</p></div>{% endif %}
+</section>
+{% else %}
+<section class="panel folder-section">
+  <div class="section-head"><div><div class="eyebrow">SUBJECT FOLDERS</div><h2>{% if selected_category %}{{ selected_category }}{% else %}Browse materials{% endif %}</h2></div><span class="count">{{ material_count }} files in this subject</span></div>
+  <div class="folder-grid">
+    <a class="folder-card {% if not selected_category %}active{% endif %}" href="{{ url_for('subject_detail', subject_id=subject_view['id']) }}">
+      <span class="folder-icon">🗂️</span><span class="folder-name">All materials</span><span class="folder-count">{{ material_count }} files</span>
+    </a>
+    {% for c in categories %}
+    <a class="folder-card {% if selected_category==c %}active{% endif %}" href="{{ url_for('subject_detail', subject_id=subject_view['id'], category=c) }}">
+      <span class="folder-icon">{% if c == 'Notes' %}📘{% elif c == 'Exam/Syllabus' %}📝{% elif c == 'Assignment' %}📄{% elif c == 'Project' %}🧩{% elif c == 'Practical/Lab' %}🧪{% else %}📁{% endif %}</span>
+      <span class="folder-name">{{ c }}</span><span class="folder-count">{{ folder_counts[c] }} files</span>
+    </a>
+    {% endfor %}
+  </div>
+  <form class="filters folder-filters" method="get" action="{{ url_for('subject_detail', subject_id=subject_view['id']) }}">
+    {% if selected_category %}<input type="hidden" name="category" value="{{ selected_category }}">{% endif %}
+    <input name="q" value="{{ search }}" placeholder="Search inside this subject…">
+    <button class="btn secondary" type="submit">Search</button>
+    {% if search %}<a class="btn secondary" href="{{ url_for('subject_detail', subject_id=subject_view['id'], category=selected_category) if selected_category else url_for('subject_detail', subject_id=subject_view['id']) }}">Clear</a>{% endif %}
+  </form>
+  {% if materials %}
+  <div class="material-list">
+    {% for m in materials %}
+    <article class="material"><div class="file-icon">↳</div><div class="material-info"><div class="material-top"><span class="category">{{ m['category'] }}</span><span class="date">{{ m['created_at'][:10] }}</span></div><h3>{{ m['title'] }}</h3>{% if m['description'] %}<p class="desc">{{ m['description'] }}</p>{% endif %}<small>{{ m['filename'] }} · Uploaded by {{ m['uploader'] }}</small></div><a class="download" href="{{ url_for('download', material_id=m['id']) }}" aria-label="Download {{ m['title'] }}">↓</a></article>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="empty"><span>📂</span><h3>{% if selected_category %}This folder is empty{% else %}No materials uploaded yet{% endif %}</h3><p>When your teacher uploads resources for this subject, they will appear here.</p></div>
+  {% endif %}
+</section>
+{% endif %}
+
+{% else %}
+<section class="welcome"><div><div class="eyebrow">YOUR ACADEMIC SPACE</div><h1>Good to see you, {{ current_user['name'].split()[0] }}.</h1><p class="muted">Manage class materials and keep everyone in the loop.</p></div><div class="actions"><a class="btn primary" href="{{ url_for('upload') }}">＋ Upload material</a><a class="btn secondary" href="{{ url_for('new_notice') }}">＋ Post notice</a></div></section>
+<div class="stats"><div class="stat"><span class="stat-label">Materials in portal</span><b>{{ material_count }}</b><span class="stat-foot">Learning resources</span></div><div class="stat"><span class="stat-label">Notices published</span><b>{{ notice_count }}</b><span class="stat-foot">Class announcements</span></div><div class="stat"><span class="stat-label">Your subjects</span><b>{{ subject_count }}</b><span class="stat-foot">Organised learning</span></div></div>
+<div class="dashboard-grid"><section class="panel resources"><div class="section-head"><div><div class="eyebrow">LIBRARY</div><h2>Learning materials</h2></div><span class="count">{{ materials|length }} shown</span></div>
+<form class="filters" method="get"><input name="q" value="{{ search }}" placeholder="Search title or subject…"><select name="category"><option value="">All categories</option>{% for c in categories %}<option value="{{ c }}" {% if selected_category==c %}selected{% endif %}>{{ c }}</option>{% endfor %}</select><select name="subject"><option value="">All subjects</option>{% for s in subjects %}<option value="{{ s['id'] }}" {% if selected_subject|string==s['id']|string %}selected{% endif %}>{{ s['code'] }}</option>{% endfor %}</select><button class="btn secondary" type="submit">Filter</button></form>
+{% if materials %}<div class="material-list">{% for m in materials %}<article class="material"><div class="file-icon">↳</div><div class="material-info"><div class="material-top"><span class="category">{{ m['category'] }}</span><span class="date">{{ m['created_at'][:10] }}</span></div><h3>{{ m['title'] }}</h3><p>{{ m['subject_code'] }} · {{ m['subject_name'] }} · Sem {{ m['semester'] }} / {{ m['section'] }}</p>{% if m['description'] %}<p class="desc">{{ m['description'] }}</p>{% endif %}<small>Uploaded by {{ m['uploader'] }} · {{ m['filename'] }}</small></div><a class="download" href="{{ url_for('download', material_id=m['id']) }}" aria-label="Download {{ m['title'] }}">↓</a></article>{% endfor %}</div>{% else %}<div class="empty"><span>⌕</span><h3>No materials found</h3><p>Try another search or category, or upload the first resource.</p></div>{% endif %}</section>
+<aside class="side-col"><section class="panel notices"><div class="section-head"><div><div class="eyebrow">STAY UPDATED</div><h2>Notice board</h2></div><span class="notice-mark">!</span></div>{% if notices %}{% for n in notices %}<article class="notice-item"><div class="notice-meta">{{ n['created_at'][:10] }} · Sem {{ n['semester'] }} / {{ n['section'] }}</div><h3>{{ n['title'] }}</h3><p>{{ n['body'] }}</p><small>Posted by {{ n['author'] }}</small></article>{% endfor %}{% else %}<div class="empty compact"><p>No notices yet.</p></div>{% endif %}</section>
+<section class="panel subject-panel"><div class="eyebrow">SUBJECT DIRECTORY</div><h2>Your subjects</h2>{% for s in subjects %}<div class="subject-row"><span class="subject-code">{{ s['code'] }}</span><div><b>{{ s['name'] }}</b><small>Semester {{ s['semester'] }} · Section {{ s['section'] }}</small></div></div>{% endfor %}</section></aside></div>
+{% endif %}
+{% endblock %}
